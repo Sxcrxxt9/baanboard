@@ -125,12 +125,12 @@ app.post('/login', async (req, res) => {
 
         // ใน Token ใส่ fullname ไปด้วย เผื่อเอาไปโชว์มุมขวาบน
         const token = jwt.sign(
-            { id: user._id, role: user.role, fullname: user.fullname, profileImage: user.profileImage }, 
+            { id: user._id, role: user.role, fullname: user.fullname,email:user.email,tel:user.tel, profileImage: user.profileImage }, 
             SECRET_KEY, 
             { expiresIn: '2h' }
         );
 
-        res.json({ token, role: user.role, fullname: user.fullname, profileImage: user.profileImage });
+        res.json({ token, role: user.role, fullname: user.fullname,email:user.email,tel:user.tel, profileImage: user.profileImage });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
