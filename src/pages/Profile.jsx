@@ -14,7 +14,6 @@ export default function Profile() {
             <div className="max-w-6xl mx-auto px-8 py-6 relative">
               <div className="absolute -top-20 left-8">
                 <img
-                  src="https://i.pravatar.cc/200"
                   alt="profile"
                   className="w-40 h-40 rounded-full border-4 border-white object-cover"
                 />
@@ -94,7 +93,6 @@ function PostCard() {
   return (
     <div className="bg-white rounded-lg shadow-sm border p-4 flex gap-4">
       <img
-        src="https://picsum.photos/200"
         className="w-40 h-28 rounded-md object-cover"
         alt=""
       />
