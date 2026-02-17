@@ -5,11 +5,12 @@ const Configs = {
   api: {
     baseApiUrl: baseApiUrl,
     auth: {
-        login: "/login",
+      login: "/login",
+      register: "/register",
     },
     get: {
-        post: "/getpost"
-    }
+      post: "/getpost",
+    },
   },
 
   storage: {
