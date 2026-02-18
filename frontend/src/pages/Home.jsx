@@ -87,10 +87,8 @@ export default function Home() {
   }, [])
 
   const filteredPosts = useMemo(() => {
-    let filtered =
-      selectedTag === "All post"
-        ? posts
-        : posts.filter((p) => p.tag === selectedTag)
+    // Note: Backend doesn't have tag field, filtering by tag is disabled
+    let filtered = posts
 
     if (sortType === "new") {
       filtered = [...filtered].sort(
@@ -143,8 +141,13 @@ export default function Home() {
 
         <div className="w-3/4 py-8 pr-8">
           <h2 className="font-semibold mb-4 text-[#474747]">Popular post ★</h2>
-          <div className="flex gap-6 mb-8">
-            {popularPosts.map((post) => (
+          {popularPosts.length === 0 ? (
+            <div className="text-center py-10 text-gray-500 mb-8">
+              <p>No posts available</p>
+            </div>
+          ) : (
+            <div className="flex gap-6 mb-8">
+              {popularPosts.map((post) => (
               <div
                 key={post.id}
                 className="bg-white w-1/3 rounded shadow p-4"
@@ -173,13 +176,19 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           <h2 className="font-semibold mb-4 text-[#474747]">All post</h2>
 
-          <div className="space-y-6">
-            {filteredPosts.map((post) => (
+          {filteredPosts.length === 0 ? (
+            <div className="text-center py-10 text-gray-500">
+              <p>No posts available</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {filteredPosts.map((post) => (
               <div
                 key={post.id}
                 className="bg-white rounded shadow p-4 flex gap-6"
@@ -218,8 +227,9 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
