@@ -40,19 +40,14 @@ const upload = multer({ storage: storage });
 
 // --- 4. Schemas ---
 
-// User Schema (เพิ่มการเก็บ History)
+// User Schema
 const userSchema = new mongoose.Schema({
     fullname: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     tel: { type: String, required: true },
     password: { type: String, required: true },
     profileImage: { type: String, default: null },
-    role: { type: String, enum: ['user', 'admin'], default: 'user' },
-    
-    // เก็บ ID ของโพสต์ที่เกี่ยวข้อง
-    myPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
-    likedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
-    commentedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }]
+    role: { type: String, enum: ['user', 'admin'], default: 'user' }
 });
 const User = mongoose.model('User', userSchema);
 
@@ -63,20 +58,16 @@ const commentSchema = new mongoose.Schema({
     created_at: { type: Date, default: Date.now }
 });
 
-// Post Schema (เพิ่ม Tag)
 const postSchema = new mongoose.Schema({
     title: { type: String, required: true },
     content: { type: String, required: true },
     image: { type: String },
-    
-    
     tag: { 
         type: String, 
-        required: true, 
+        required: true 
     },
-
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // คนที่มาไลก์
+    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], 
     comments: [commentSchema],
     created_at: { type: Date, default: Date.now }
 });
@@ -136,14 +127,12 @@ app.post('/login', async (req, res) => {
 
         res.json({ 
             token, 
-            user: {
-                id: user._id,
-                fullname: user.fullname,
-                role: user.role,
-                profileImage: user.profileImage,
-                email: user.email,
-                tel: user.tel
-            }
+            id: user._id,
+            fullname: user.fullname,
+            role: user.role,
+            profileImage: user.profileImage,
+            email: user.email,
+            tel: user.tel
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -152,21 +141,16 @@ app.post('/login', async (req, res) => {
 
 // --- 7. Routes: Profile & User Data ---
 
-// ดูข้อมูล Profile ตัวเอง (รวม list โพสต์ที่เกี่ยวข้อง)
-app.get('/my-profile', authenticateToken, async (req, res) => {
+// Get My Profile
+app.get('/profile', authenticateToken, async (req, res) => {
     try {
-        const user = await User.findById(req.user.id)
-            .select('-password')
-            .populate('myPosts')
-            .populate('likedPosts')
-            .populate('commentedPosts');
+        const user = await User.findById(req.user.id).select('-password');
         res.json(user);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
-
-// แก้ไข Profile
+// Edit My Profile
 app.put('/profile', authenticateToken, upload.single('profileImage'), async (req, res) => {
     try {
         const updates = {};
@@ -185,11 +169,10 @@ app.put('/profile', authenticateToken, upload.single('profileImage'), async (req
 
 // --- 8. Routes: Posts (Main Features) ---
 
-// 1. Create Post (ต้องเลือก Tag)
+// 1. Create Post
 app.post('/post', authenticateToken, upload.single('image'), async (req, res) => {
     try {
         const { title, content, tag } = req.body;
-
         const image = req.file ? req.file.path : null;
 
         const newPost = await Post.create({
@@ -200,19 +183,16 @@ app.post('/post', authenticateToken, upload.single('image'), async (req, res) =>
             owner: req.user.id
         });
 
-        // Update User History (My Posts)
-        await User.findByIdAndUpdate(req.user.id, {
-            $push: { myPosts: newPost._id }
-        });
-
+        // ตัดการ update User ทิ้งไปเลย (ลดการทำงาน Database)
+        
         res.status(201).json(newPost);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// 2. Get All Posts (ค้นหา + กรอง Tag)
-app.get('/getpost', authenticateToken, async (req, res) => {
+// 2. Get All Posts
+app.get('/post', authenticateToken, async (req, res) => {
     try {
         const { search, tag, order_by } = req.query;
         let query = {};
@@ -239,48 +219,97 @@ app.get('/getpost', authenticateToken, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-
-
-// 3. Get My Posts (ดูโพสต์ทั้งหมดของตัวเอง)
-app.get('/mypost', authenticateToken, async (req, res) => {
+// 3. Get Post by ID
+app.get('/post/:id', authenticateToken, async (req, res) => {
     try {
-        // 1. ค้นหาโดยใช้ owner: req.user.id (ID จาก Token ของคน Login)
-        const posts = await Post.find({ owner: req.user.id }) 
+        const post = await Post.findById(req.params.id)
             .populate('owner', 'fullname role profileImage')
-            .populate('comments.owner', 'fullname role profileImage')
-            .sort({ created_at: -1 }); // เรียงจากใหม่ไปเก่า
-
-        // 2. เนื่องจากผลลัพธ์เป็น Array (หลายโพสต์) เราต้องวนลูป map เพื่อจัด format
-        const result = posts.map(post => ({
+            .populate('comments.owner', 'fullname role profileImage');
+        if (!post) return res.status(404).json({ error: 'Post not found' });
+        res.json({
             ...post.toObject(),
             likeCount: post.likes ? post.likes.length : 0
-        }));
-
-        res.json(result);
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// 4. Get Posts by User ID (ดูโพสต์ของคนอื่น หรือ ของตัวเอง)
-// app.get('/user/:id/posts', authenticateToken, async (req, res) => {
-//     try {
-//         const userId = req.params.id;
-//         const posts = await Post.find({ owner: userId })
-//             .populate('owner', 'fullname role profileImage')
-//             .sort({ created_at: -1 });
+// 4. Get My Posts
+app.get('/mypost', authenticateToken, async (req, res) => {
+    try {
+        // ค้นหา Post ที่เจ้าของคือ ID ของคน Login
+        const posts = await Post.find({ owner: req.user.id }) 
+            .populate('owner', 'fullname role profileImage')
+            .populate('comments.owner', 'fullname role profileImage')
+            .sort({ created_at: -1 });
 
-//         res.json(posts.map(p => ({
-//             ...p.toObject(),
-//             likeCount: p.likes ? p.likes.length : 0,
-//             commentCount: p.comments ? p.comments.length : 0
-//         })));
-//     } catch (err) {
-//         res.status(500).json({ error: err.message });
-//     }
-// });
+        res.json(posts.map(post => ({
+            ...post.toObject(),
+            likeCount: post.likes ? post.likes.length : 0
+        })));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
-// 5. Delete Post
+// 5. Get Liked Posts
+app.get('/likedpost', authenticateToken, async (req, res) => {
+    try {
+        // ค้นหา Post ที่ใน Array likes มี ID ของเราอยู่
+        const posts = await Post.find({ likes: req.user.id }) 
+            .populate('owner', 'fullname role profileImage')
+            .populate('comments.owner', 'fullname role profileImage')
+            .sort({ created_at: -1 });
+
+        res.json(posts.map(post => ({
+            ...post.toObject(),
+            likeCount: post.likes ? post.likes.length : 0
+        })));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 6. Get Commented Posts
+app.get('/commentedpost', authenticateToken, async (req, res) => {
+    try {
+        // ค้นหา Post ที่มี comments ไหนสักอันที่เป็นของเรา
+        const posts = await Post.find({ "comments.owner": req.user.id }) 
+            .populate('owner', 'fullname role profileImage')
+            .populate('comments.owner', 'fullname role profileImage')
+            .sort({ created_at: -1 });
+
+        res.json(posts.map(post => ({
+            ...post.toObject(),
+            likeCount: post.likes ? post.likes.length : 0
+        })));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 7. Get Posts by User ID (ดูโพสต์คนอื่น) (ยังไม่ใช้ แต่เผื่อไว้)
+app.get('/user/:id/posts', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.params.id;
+        // ค้นหา Post ที่ owner ตรงกับ ID ที่ส่งมา
+        const posts = await Post.find({ owner: userId })
+            .populate('owner', 'fullname role profileImage')
+            .populate('comments.owner', 'fullname role profileImage') // เพิ่ม populate comment owner ให้ด้วย
+            .sort({ created_at: -1 });
+
+        res.json(posts.map(p => ({
+            ...p.toObject(),
+            likeCount: p.likes ? p.likes.length : 0,
+            commentCount: p.comments ? p.comments.length : 0
+        })));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 8. Delete Post
 app.delete('/deletepost/:id', authenticateToken, async (req, res) => {
     try {
         const post = await Post.findById(req.params.id);
@@ -292,18 +321,14 @@ app.delete('/deletepost/:id', authenticateToken, async (req, res) => {
         
         await Post.findByIdAndDelete(req.params.id);
         
-        // ลบ ID ออกจาก User myPosts ด้วยก็ได้ (Optional แต่แนะนำ)
-        await User.findByIdAndUpdate(post.owner, {
-            $pull: { myPosts: req.params.id }
-        });
-
+        // ตัดการ update User ทิ้งไป
         res.json({ message: "Deleted" });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// 6. Edit Post
+// 9. Edit Post
 app.put('/post/:id', authenticateToken, upload.single('image'), async (req, res) => {
     try {
         const post = await Post.findById(req.params.id);
@@ -328,7 +353,7 @@ app.put('/post/:id', authenticateToken, upload.single('image'), async (req, res)
 
 // --- 9. Routes: Actions (Like & Comment) ---
 
-// Like / Unlike (Update both Post & User Profile)
+// Like / Unlike
 app.post('/post/:id/like', authenticateToken, async (req, res) => {
     try {
         const postId = req.params.id;
@@ -342,22 +367,21 @@ app.post('/post/:id/like', authenticateToken, async (req, res) => {
         if (index === -1) {
             // Like
             post.likes.push(userId);
-            await post.save();
-            await User.findByIdAndUpdate(userId, { $addToSet: { likedPosts: postId } });
         } else {
             // Unlike
             post.likes.splice(index, 1);
-            await post.save();
-            await User.findByIdAndUpdate(userId, { $pull: { likedPosts: postId } });
         }
         
+        await post.save();
+        // ตัดการ update User ทิ้งไป
+
         res.json({ likeCount: post.likes.length });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Comment (Update both Post & User Profile)
+// Comment
 app.post('/post/:id/comment', authenticateToken, async (req, res) => {
     try {
         const { text } = req.body;
@@ -370,7 +394,7 @@ app.post('/post/:id/comment', authenticateToken, async (req, res) => {
         post.comments.push({ text, owner: userId });
         await post.save();
 
-        await User.findByIdAndUpdate(userId, { $addToSet: { commentedPosts: postId } });
+        // ตัดการ update User ทิ้งไป
 
         res.status(201).json(post);
     } catch (err) {
