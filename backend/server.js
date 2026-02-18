@@ -3,9 +3,9 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const multer = require('multer'); // เพิ่ม multer
-const cloudinary = require('cloudinary').v2; // เพิ่ม Cloudinary
-const { CloudinaryStorage } = require('multer-storage-cloudinary'); // ตัวเชื่อม
+const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 require('dotenv').config();
 
 const app = express();
@@ -21,7 +21,7 @@ mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('MongoDB Connected'))
     .catch(err => console.error('DB Error:', err));
 
-// --- 3. Cloudinary Setup 
+// --- 3. Cloudinary Setup ---
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
@@ -31,7 +31,7 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
     params: {
-        folder: 'baanboard_posts', // ชื่อโฟลเดอร์ใน Cloudinary
+        folder: 'baanboard_posts',
         allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
     },
 });
@@ -39,29 +39,44 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage: storage });
 
 // --- 4. Schemas ---
+
+// User Schema (เพิ่มการเก็บ History)
 const userSchema = new mongoose.Schema({
-    fullname: { type: String, required: true }, // ชื่อ-นามสกุล
-    email: { type: String, required: true, unique: true }, // ใช้ Email เป็น ID หลักแทน Username
-    tel: { type: String, required: true }, // เบอร์โทร
+    fullname: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    tel: { type: String, required: true },
     password: { type: String, required: true },
-    profileImage: { type: String, default: null }, // URL รูปโปรไฟล์
-    role: { type: String, enum: ['user', 'admin'], default: 'user' }
+    profileImage: { type: String, default: null },
+    role: { type: String, enum: ['user', 'admin'], default: 'user' },
+    
+    // เก็บ ID ของโพสต์ที่เกี่ยวข้อง
+    myPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
+    likedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
+    commentedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }]
 });
 const User = mongoose.model('User', userSchema);
 
-// sub-schema สำหรับ comment ที่จะฝังในโพสต์
+// Comment Schema
 const commentSchema = new mongoose.Schema({
     text: { type: String, required: true },
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     created_at: { type: Date, default: Date.now }
 });
 
+// Post Schema (เพิ่ม Tag)
 const postSchema = new mongoose.Schema({
     title: { type: String, required: true },
     content: { type: String, required: true },
-    image: { type: String }, // เก็บ URL รูป
+    image: { type: String },
+    
+    
+    tag: { 
+        type: String, 
+        required: true, 
+    },
+
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // ผู้ที่กดไลก์
+    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // คนที่มาไลก์
     comments: [commentSchema],
     created_at: { type: Date, default: Date.now }
 });
@@ -80,22 +95,15 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// --- 6. Routes (Auth) ---
+// --- 6. Routes: Authentication ---
+
 app.post('/register', upload.single('profileImage'), async (req, res) => {
     try {
-        // รับค่าให้ครบตามหน้าเว็บ (Full name, Email, Tel, Password)
         const { fullname, email, tel, password } = req.body;
-
-        // เช็คว่าอีเมลซ้ำไหม (แทนเช็ค username)
         const existingUser = await User.findOne({ email });
         if (existingUser) return res.status(400).json({ message: "Email already exists" });
 
         const hashedPassword = await bcrypt.hash(password, 10);
-
-        // ตรวจสอบว่าเป็นผู้ใช้คนแรกไหม ถ้าใช่ให้เป็น admin
-      
-
-        // สร้าง User ใหม่
         await User.create({
             fullname,
             email,
@@ -111,201 +119,54 @@ app.post('/register', upload.single('profileImage'), async (req, res) => {
     }
 });
 
-// --- แก้ไข Route Login (ต้อง Login ด้วย Email) ---
 app.post('/login', async (req, res) => {
     try {
-        const { email, password } = req.body; // รับ Email แทน Username
-        
-        // ค้นหาจาก Email
+        const { email, password } = req.body;
         const user = await User.findOne({ email });
         
         if (!user || !(await bcrypt.compare(password, user.password))) {
             return res.status(400).json({ message: "Invalid email or password" });
         }
 
-        // ใน Token ใส่ fullname ไปด้วย เผื่อเอาไปโชว์มุมขวาบน
         const token = jwt.sign(
-            { id: user._id, role: user.role, fullname: user.fullname,email:user.email,tel:user.tel, profileImage: user.profileImage }, 
+            { id: user._id, role: user.role, fullname: user.fullname, email: user.email }, 
             SECRET_KEY, 
             { expiresIn: '2h' }
         );
 
-        res.json({ token, role: user.role, fullname: user.fullname,email:user.email,tel:user.tel, profileImage: user.profileImage });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// --- 7. Routes (Auth & Admin) ---
-
-// create admin user - only accessible by existing admin
-app.post('/createadmin', authenticateToken, upload.single('profileImage'), async (req, res) => {
-    try {
-        if (req.user.role !== 'admin') {
-            return res.status(403).json({ message: 'Forbidden' });
-        }
-        const { fullname, email, tel, password } = req.body;
-        const existingUser = await User.findOne({ email });
-        if (existingUser) return res.status(400).json({ message: "Email already exists" });
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-        await User.create({
-            fullname,
-            email,
-            tel,
-            password: hashedPassword,
-            profileImage: req.file ? req.file.path : null,
-            role: 'admin'
+        res.json({ 
+            token, 
+            user: {
+                id: user._id,
+                fullname: user.fullname,
+                role: user.role,
+                profileImage: user.profileImage,
+                email: user.email,
+                tel: user.tel
+            }
         });
-        res.status(201).json({ message: 'Admin created' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// --- 7. Routes (Posts) ---
+// --- 7. Routes: Profile & User Data ---
 
-// Get Posts (ต้อง Login ก่อน)
-app.get('/getpost', authenticateToken, async (req, res) => {
+// ดูข้อมูล Profile ตัวเอง (รวม list โพสต์ที่เกี่ยวข้อง)
+app.get('/my-profile', authenticateToken, async (req, res) => {
     try {
-        const { search, order_by } = req.query;
-        let query = {};
-        if (search) query.title = { $regex: search, $options: 'i' };
-
-        let posts = Post.find(query)
-            .populate('owner', 'fullname role profileImage')
-            .populate('comments.owner', 'fullname role profileImage');
-        
-        if (order_by === 'post_date') {
-            posts = posts.sort({ created_at: -1 });
-        } else {
-            posts = posts.sort({ created_at: 1 });
-        }
-
-        const result = await posts.exec();
-        // เพิ่มจำนวนไลก์ให้ส่งกลับด้วย
-        res.json(result.map(p => ({
-            ...p.toObject(),
-            likeCount: p.likes ? p.likes.length : 0
-        })));
+        const user = await User.findById(req.user.id)
+            .select('-password')
+            .populate('myPosts')
+            .populate('likedPosts')
+            .populate('commentedPosts');
+        res.json(user);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Get posts liked by current user
-app.get('/liked', authenticateToken, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const posts = await Post.find({ likes: userId })
-            .populate('owner', 'fullname role profileImage')
-            .populate('comments.owner', 'fullname role profileImage');
-
-        res.json(posts.map(p => ({
-            ...p.toObject(),
-            likeCount: p.likes ? p.likes.length : 0
-        })));
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Create Post (ต้อง Login + อัปรูปได้)
-// upload.single('image') คือตัวรับไฟล์จาก Frontend
-app.post('/post', authenticateToken, upload.single('image'), async (req, res) => {
-    try {
-        const { title, content } = req.body;
-        
-        // ถ้าอัปรูปสำเร็จ req.file.path จะเป็นลิงก์ URL จาก Cloudinary
-        const image = req.file ? req.file.path : null;
-
-        const newPost = await Post.create({
-            title,
-            content,
-            image, 
-            owner: req.user.id
-        });
-        res.status(201).json(newPost);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Delete Post
-app.delete('/deletepost/:id', authenticateToken, async (req, res) => {
-    try {
-        const post = await Post.findById(req.params.id);
-        if (!post) return res.status(404).json({ message: "Not found" });
-        
-        if (post.owner.toString() !== req.user.id && req.user.role !== 'admin') {
-            return res.status(403).json({ message: "Unauthorized" });
-        }
-        
-        await Post.findByIdAndDelete(req.params.id);
-        res.json({ message: "Deleted" });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Edit Post (owner or admin)
-app.put('/post/:id', authenticateToken, upload.single('image'), async (req, res) => {
-    try {
-        const post = await Post.findById(req.params.id);
-        if (!post) return res.status(404).json({ message: 'Not found' });
-
-        if (post.owner.toString() !== req.user.id && req.user.role !== 'admin') {
-            return res.status(403).json({ message: 'Unauthorized' });
-        }
-
-        const { title, content } = req.body;
-        if (title) post.title = title;
-        if (content) post.content = content;
-        if (req.file && req.file.path) post.image = req.file.path;
-
-        await post.save();
-        res.json(post);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Like / Unlike post
-app.post('/post/:id/like', authenticateToken, async (req, res) => {
-    try {
-        const post = await Post.findById(req.params.id);
-        if (!post) return res.status(404).json({ message: 'Not found' });
-
-        const userId = req.user.id;
-        const index = post.likes.findIndex(u => u.toString() === userId);
-        if (index === -1) {
-            post.likes.push(userId);
-        } else {
-            post.likes.splice(index, 1);
-        }
-        await post.save();
-        res.json({ likeCount: post.likes.length });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Comment on post
-app.post('/post/:id/comment', authenticateToken, async (req, res) => {
-    try {
-        const { text } = req.body;
-        const post = await Post.findById(req.params.id);
-        if (!post) return res.status(404).json({ message: 'Not found' });
-
-        post.comments.push({ text, owner: req.user.id });
-        await post.save();
-        res.status(201).json(post);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Update profile (fullname, tel, password, profileImage)
+// แก้ไข Profile
 app.put('/profile', authenticateToken, upload.single('profileImage'), async (req, res) => {
     try {
         const updates = {};
@@ -316,11 +177,206 @@ app.put('/profile', authenticateToken, upload.single('profileImage'), async (req
         if (req.file && req.file.path) updates.profileImage = req.file.path;
 
         const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true });
-        if (!user) return res.status(404).json({ message: 'User not found' });
         res.json(user);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
+// --- 8. Routes: Posts (Main Features) ---
+
+// 1. Create Post (ต้องเลือก Tag)
+app.post('/post', authenticateToken, upload.single('image'), async (req, res) => {
+    try {
+        const { title, content, tag } = req.body;
+
+        const image = req.file ? req.file.path : null;
+
+        const newPost = await Post.create({
+            title,
+            content,
+            tag,
+            image, 
+            owner: req.user.id
+        });
+
+        // Update User History (My Posts)
+        await User.findByIdAndUpdate(req.user.id, {
+            $push: { myPosts: newPost._id }
+        });
+
+        res.status(201).json(newPost);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 2. Get All Posts (ค้นหา + กรอง Tag)
+app.get('/getpost', authenticateToken, async (req, res) => {
+    try {
+        const { search, tag, order_by } = req.query;
+        let query = {};
+
+        if (search) query.title = { $regex: search, $options: 'i' };
+        if (tag) query.tag = tag;
+
+        let postsQuery = Post.find(query)
+            .populate('owner', 'fullname role profileImage')
+            .populate('comments.owner', 'fullname role profileImage');
+        
+        if (order_by === 'post_date') {
+            postsQuery = postsQuery.sort({ created_at: -1 });
+        } else {
+            postsQuery = postsQuery.sort({ created_at: 1 });
+        }
+
+        const posts = await postsQuery.exec();
+        res.json(posts.map(p => ({
+            ...p.toObject(),
+            likeCount: p.likes ? p.likes.length : 0
+        })));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+// 3. Get My Posts (ดูโพสต์ทั้งหมดของตัวเอง)
+app.get('/mypost', authenticateToken, async (req, res) => {
+    try {
+        // 1. ค้นหาโดยใช้ owner: req.user.id (ID จาก Token ของคน Login)
+        const posts = await Post.find({ owner: req.user.id }) 
+            .populate('owner', 'fullname role profileImage')
+            .populate('comments.owner', 'fullname role profileImage')
+            .sort({ created_at: -1 }); // เรียงจากใหม่ไปเก่า
+
+        // 2. เนื่องจากผลลัพธ์เป็น Array (หลายโพสต์) เราต้องวนลูป map เพื่อจัด format
+        const result = posts.map(post => ({
+            ...post.toObject(),
+            likeCount: post.likes ? post.likes.length : 0
+        }));
+
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 4. Get Posts by User ID (ดูโพสต์ของคนอื่น หรือ ของตัวเอง)
+// app.get('/user/:id/posts', authenticateToken, async (req, res) => {
+//     try {
+//         const userId = req.params.id;
+//         const posts = await Post.find({ owner: userId })
+//             .populate('owner', 'fullname role profileImage')
+//             .sort({ created_at: -1 });
+
+//         res.json(posts.map(p => ({
+//             ...p.toObject(),
+//             likeCount: p.likes ? p.likes.length : 0,
+//             commentCount: p.comments ? p.comments.length : 0
+//         })));
+//     } catch (err) {
+//         res.status(500).json({ error: err.message });
+//     }
+// });
+
+// 5. Delete Post
+app.delete('/deletepost/:id', authenticateToken, async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.id);
+        if (!post) return res.status(404).json({ message: "Not found" });
+        
+        if (post.owner.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: "Unauthorized" });
+        }
+        
+        await Post.findByIdAndDelete(req.params.id);
+        
+        // ลบ ID ออกจาก User myPosts ด้วยก็ได้ (Optional แต่แนะนำ)
+        await User.findByIdAndUpdate(post.owner, {
+            $pull: { myPosts: req.params.id }
+        });
+
+        res.json({ message: "Deleted" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 6. Edit Post
+app.put('/post/:id', authenticateToken, upload.single('image'), async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.id);
+        if (!post) return res.status(404).json({ message: 'Not found' });
+
+        if (post.owner.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Unauthorized' });
+        }
+
+        const { title, content, tag } = req.body;
+        if (title) post.title = title;
+        if (content) post.content = content;
+        if (tag) post.tag = tag;
+        if (req.file && req.file.path) post.image = req.file.path;
+
+        await post.save();
+        res.json(post);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- 9. Routes: Actions (Like & Comment) ---
+
+// Like / Unlike (Update both Post & User Profile)
+app.post('/post/:id/like', authenticateToken, async (req, res) => {
+    try {
+        const postId = req.params.id;
+        const userId = req.user.id;
+
+        const post = await Post.findById(postId);
+        if (!post) return res.status(404).json({ message: 'Not found' });
+
+        const index = post.likes.findIndex(id => id.toString() === userId);
+        
+        if (index === -1) {
+            // Like
+            post.likes.push(userId);
+            await post.save();
+            await User.findByIdAndUpdate(userId, { $addToSet: { likedPosts: postId } });
+        } else {
+            // Unlike
+            post.likes.splice(index, 1);
+            await post.save();
+            await User.findByIdAndUpdate(userId, { $pull: { likedPosts: postId } });
+        }
+        
+        res.json({ likeCount: post.likes.length });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Comment (Update both Post & User Profile)
+app.post('/post/:id/comment', authenticateToken, async (req, res) => {
+    try {
+        const { text } = req.body;
+        const postId = req.params.id;
+        const userId = req.user.id;
+
+        const post = await Post.findById(postId);
+        if (!post) return res.status(404).json({ message: 'Not found' });
+
+        post.comments.push({ text, owner: userId });
+        await post.save();
+
+        await User.findByIdAndUpdate(userId, { $addToSet: { commentedPosts: postId } });
+
+        res.status(201).json(post);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- Server Start ---
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
