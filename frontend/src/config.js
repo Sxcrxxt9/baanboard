@@ -1,15 +1,16 @@
-const baseApiUrl = "https://baanboard.onrender.com";
+const baseApiUrl = "https://baanboard-api.onrender.com";
 
 const Configs = {
   version: "V.1.0.0",
   api: {
     baseApiUrl: baseApiUrl,
     auth: {
-        login: "/login",
+      login: "/login",
+      register: "/register",
     },
     get: {
-        post: "/getpost"
-    }
+      post: "/getpost",
+    },
   },
 
   storage: {
