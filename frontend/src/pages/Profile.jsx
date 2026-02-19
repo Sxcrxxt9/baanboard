@@ -1,13 +1,22 @@
 import { useAuth } from "../context/AuthContext"
 import { useState } from "react"
 import { IoCallOutline, IoMailOutline } from "react-icons/io5"
+<<<<<<< HEAD
 import { textStyles,COLORS } from "../style/text"
+=======
+import client from "../api/client"
+import Configs from "../config"
+import { useNavigate } from "react-router-dom"
+import { textStyles } from "../style/text"
+import bg from "../assets/image/bg.jpg"
+>>>>>>> c953c39 (V1.0.0 pretest)
 
 export default function Profile() {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState("liked")
 
   return (
+<<<<<<< HEAD
         <div className="min-h-screen bg-white">
           <div className="h-56 bg-gray-100" />
           <div className="bg-white shadow relative">
@@ -41,6 +50,65 @@ export default function Profile() {
                       {user?.email}
                     </div>
                   </div>
+=======
+    <div className="min-h-screen bg-white">
+      <div className="relative h-56">
+        <div className="absolute inset-0 bg-[#47A19C]/50" />
+        <div className="h-56 bg-gray-100" style={{ backgroundImage: `url(${bg})`}}/>              
+      </div>
+
+      <div className="bg-white shadow relative">
+        <div className="max-w-6xl mx-auto px-8 py-6 relative">
+
+          <div className="absolute -top-20 left-8">
+            <div className="relative">
+              <img
+                src={
+                  profile?.profileImage
+                }
+                alt="profile"
+                className={`w-40 h-40 rounded-full border-4 border-white object-cover ${
+                  uploading ? "opacity-50" : ""
+                }`}
+              />
+            </div>
+
+            <p
+              onClick={handleFileSelect}
+              className="absolute -bottom-10 left-8 text-sm text-gray-600 cursor-pointer hover:underline"
+            >
+              Change profile
+            </p>
+
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </div>
+
+          <div className="ml-56 flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">
+                @{profile?.fullname}
+              </h1>
+
+              <p className="text-gray-600 mt-1">
+                {profile?.fullname}
+              </p>
+
+              <div className="flex gap-8 mt-4 text-gray-600 text-sm">
+                <div className="flex items-center gap-2">
+                  <IoCallOutline size={18} />
+                  {profile?.tel}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <IoMailOutline size={18} />
+                  {profile?.email}
+>>>>>>> c953c39 (V1.0.0 pretest)
                 </div>
                 <button className="text-primary font-medium hover:underline">
                   Edit profile
@@ -91,7 +159,14 @@ export default function Profile() {
 
 function PostCard() {
   return (
+<<<<<<< HEAD
     <div className="bg-white rounded-lg shadow-sm border p-4 flex gap-4">
+=======
+    <div
+      onClick={() => navigate(`/postdetail/${post._id}`)}
+      className="bg-white rounded-lg shadow-sm border p-4 flex gap-4 cursor-pointer hover:shadow-md transition"
+    >
+>>>>>>> c953c39 (V1.0.0 pretest)
       <img
         className="w-40 h-28 rounded-md object-cover"
         alt=""

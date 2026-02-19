@@ -147,7 +147,8 @@ export default function Home() {
             {popularPosts.map((post) => (
               <div
                 key={post.id}
-                className="bg-white w-1/3 rounded shadow p-4"
+                onClick={() => navigate(`/postdetail/${post._id}`)}
+                className="bg-white w-1/3 rounded shadow p-4 cursor-pointer hover:shadow-md transition"
               >
                 <img
                   src={post.image}
@@ -182,7 +183,8 @@ export default function Home() {
             {filteredPosts.map((post) => (
               <div
                 key={post.id}
-                className="bg-white rounded shadow p-4 flex gap-6"
+                onClick={() => navigate(`/postdetail/${post._id}`)}
+                className="bg-white rounded shadow p-4 flex gap-6 cursor-pointer hover:shadow-md transition"
               >
                 <img
                   src={post.image}
