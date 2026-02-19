@@ -20,6 +20,9 @@ export default function App() {
             <Route path="/post" element={<Post/>} />
             <Route path="/contact" element={<Contact/>} />
             <Route path="/profile" element={<Profile/>} />
+            <Route path="/editprofile" element={<EditProfile/>} />
+            <Route path="/editpost/:id" element={<EditPost/>} />
+            <Route path="/postdetail/:id" element={<PostDetail/>} />
             <Route path="/search" element={<Search/>} />
           </Route>
         </Route>
