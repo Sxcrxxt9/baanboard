@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getMyPostsApi } from "../api/post";
-<<<<<<< HEAD
-=======
 import { FaTrash, FaEdit} from "react-icons/fa";
 import { ThumbsUp, MessageSquare } from "lucide-react"
 import Configs from "../config";
 import client from "../api/client";
 import { useNavigate } from "react-router-dom";
->>>>>>> c953c39 (V1.0.0 pretest)
 
 export default function Post() {
   const { user } = useAuth();
@@ -42,21 +39,6 @@ export default function Post() {
 
       <div className="grid grid-cols-3 gap-6">
         {posts.map((post) => (
-<<<<<<< HEAD
-          <div key={post.id} className="bg-white rounded-xl shadow">
-            <img src={post.image} className="h-40 w-full object-cover" />
-
-            <div className="p-4">
-              <div className="flex gap-2 flex-wrap mb-2">
-                {post.tags?.map((tag, index) => (
-                  <span
-                    key={index}
-                    className="bg-teal-100 text-teal-700 text-xs px-2 py-1 rounded-full"
-                  >
-                    {tag}
-                  </span>
-                ))}
-=======
           <div
             key={post._id}
             className="bg-white rounded-lg shadow overflow-hidden cursor-pointer hover:shadow-md transition"
@@ -98,17 +80,10 @@ export default function Post() {
                       {tag.trim()}
                     </span>
                   ))}
->>>>>>> c953c39 (V1.0.0 pretest)
               </div>
 
               <h2 className="font-semibold text-teal-600">{post.title}</h2>
 
-<<<<<<< HEAD
-              <p className="text-sm text-gray-500 mt-1">{post.description}</p>
-
-              <div className="text-xs text-gray-400 mt-3">
-                {new Date(post.createdAt).toLocaleDateString()}
-=======
               <div className="flex justify-between items-center mt-4 text-gray-700 text-sm">
                 <div className="flex items-center gap-2">
                   <ThumbsUp size={18} />
@@ -119,7 +94,6 @@ export default function Post() {
                   <MessageSquare size={18}/>
                   {post.comments.length || 0}
                 </div>
->>>>>>> c953c39 (V1.0.0 pretest)
               </div>
             </div>
           </div>
